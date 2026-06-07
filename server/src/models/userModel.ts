@@ -8,6 +8,7 @@ export interface User extends Document {
   created_at: Date;
 }
 
+
 const UserSchema: Schema = new Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
