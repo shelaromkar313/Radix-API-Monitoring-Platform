@@ -55,12 +55,16 @@ const Navbar = () => {
               <div className="h-8 w-px bg-slate-200 mx-2" />
               
               <div className="flex items-center space-x-4 pl-2">
-                <div className="flex items-center space-x-2 px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-xl">
-                  <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <UserIcon className="h-4 w-4 text-primary" />
+                <Link
+                  to="/profile"
+                  className="flex items-center space-x-2 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-xl transition-all group active:scale-95 shadow-sm"
+                  title="View Your Profile"
+                >
+                  <div className="h-6 w-6 rounded-lg bg-primary/10 group-hover:bg-primary flex items-center justify-center transition-colors">
+                    <UserIcon className="h-4 w-4 text-primary group-hover:text-white transition-colors" />
                   </div>
-                  <span className="text-sm font-bold text-slate-700">{user?.name}</span>
-                </div>
+                  <span className="text-sm font-bold text-slate-700 group-hover:text-slate-900 transition-colors">{user?.name}</span>
+                </Link>
                 
                 <button
                   onClick={handleLogout}

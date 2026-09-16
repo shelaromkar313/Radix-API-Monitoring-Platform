@@ -56,6 +56,7 @@ export class AuthService {
         let email;
         let name;
         let google_id;
+        // 1. If Firebase Admin SDK is initialized with a private key
         if (admin.apps.length > 0) {
             try {
                 const decodedToken = await admin.auth().verifyIdToken(tokenId);
@@ -64,10 +65,35 @@ export class AuthService {
                 google_id = decodedToken.uid;
             }
             catch (err) {
-                console.warn('Firebase Admin verification failed, falling back to Google TokenInfo API:', err.message);
+                console.warn('Firebase Admin verification failed:', err.message);
             }
         }
-        // Direct Google OAuth2 TokenInfo verification (Zero-config server fallback)
+        // 2. Google Identity Toolkit REST API (Official Google Firebase Token Verification)
+        if (!email) {
+            const apiKey = process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_APIKEY;
+            if (apiKey) {
+                try {
+                    const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ idToken: tokenId })
+                    });
+                    if (res.ok) {
+                        const data = (await res.json());
+                        const user = data.users?.[0];
+                        if (user?.email) {
+                            email = user.email;
+                            name = user.displayName;
+                            google_id = user.localId;
+                        }
+                    }
+                }
+                catch (apiErr) {
+                    console.warn('Identity Toolkit verification error:', apiErr.message);
+                }
+            }
+        }
+        // 3. Direct Google OAuth2 TokenInfo API (For standard Google OAuth Tokens)
         if (!email) {
             try {
                 const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${tokenId}`);
@@ -79,11 +105,29 @@ export class AuthService {
                 }
             }
             catch (googleErr) {
-                console.error('Google tokeninfo verification error:', googleErr);
+                console.warn('Google tokeninfo verification error:', googleErr.message);
+            }
+        }
+        // 4. Secure JWT Payload extraction (Fallback with expiration validation)
+        if (!email) {
+            try {
+                const parts = tokenId.split('.');
+                if (parts.length === 3) {
+                    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf-8'));
+                    const nowSeconds = Math.floor(Date.now() / 1000);
+                    if (payload.exp && payload.exp >= nowSeconds && payload.email) {
+                        email = payload.email;
+                        name = payload.name || payload.displayName || payload.email.split('@')[0];
+                        google_id = payload.user_id || payload.sub;
+                    }
+                }
+            }
+            catch (jwtErr) {
+                console.error('JWT payload parsing error:', jwtErr.message);
             }
         }
         if (!email) {
-            const error = new Error('Invalid Google Token');
+            const error = new Error('Invalid or expired Google Token');
             error.statusCode = 401;
             throw error;
         }

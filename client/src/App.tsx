@@ -14,6 +14,7 @@ import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
 import IncidentDashboard from './pages/IncidentDashboard';
 import IncidentDetails from './pages/IncidentDetails';
+import Profile from './pages/Profile';
 
 import React from 'react';
 
@@ -40,6 +41,7 @@ const DynamicTitle = () => {
     else if (path === '/teams') document.title = `Teams | ${defaultTitle}`;
     else if (path === '/analytics') document.title = `Analytics | ${defaultTitle}`;
     else if (path === '/settings') document.title = `Settings | ${defaultTitle}`;
+    else if (path === '/profile') document.title = `User Profile | ${defaultTitle}`;
     else if (path === '/login') document.title = `Login | ${defaultTitle}`;
     else if (path === '/register') document.title = `Register | ${defaultTitle}`;
     else if (path.startsWith('/projects/')) document.title = `Project Details | ${defaultTitle}`;
@@ -94,6 +96,12 @@ function App() {
           <Route path="/settings" element={
             <ProtectedRoute>
               <Settings />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <Profile />
             </ProtectedRoute>
           } />
           
