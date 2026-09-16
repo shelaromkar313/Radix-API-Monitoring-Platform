@@ -158,8 +158,8 @@ const Analytics = () => {
                    </div>
                 </div>
              </div>
-             <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
+             <div className="h-80 w-full min-w-0">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
                   <AreaChart data={mockLatencyData}>
                     <defs>
                       <linearGradient id="colorP95" x1="0" y1="0" x2="0" y2="1">
@@ -216,8 +216,8 @@ const Analytics = () => {
               <h3 className="text-xl font-black text-slate-900 mb-8 flex items-center gap-2">
                  <BarChart3 className="h-5 w-5 text-primary" /> Weekly Traffic Trend
               </h3>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="h-64 w-full min-w-0">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
                   <BarChart data={mockUsageData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis dataKey="day" fontSize={11} fontWeight={600} tickLine={false} axisLine={false} tick={{fill: '#94a3b8'}} />
