@@ -5,6 +5,7 @@ import http from 'http';
 import { initSocket } from './config/socket.js';
 import { initDb } from './config/db.js';
 import { connectRedis } from './config/redis.js';
+import prisma from './config/client.js';
 // import { connectRabbitMQ } from './config/rabbitmq.js';
 import authRoutes from './routes/authRoutes.js';
 import projectRoutes from './routes/projectRoutes.js';
@@ -59,10 +60,10 @@ app.use((req, res, next) => {
     }
     next();
 });
-// Rate Limiting
+// Rate Limiting (Allows healthy polling and testing console calls)
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    limit: process.env.NODE_ENV === 'production' ? 100 : 10000, // 10k limit for local development
+    limit: process.env.NODE_ENV === 'production' ? 2000 : 20000,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
 });
@@ -104,6 +105,14 @@ const start = async () => {
     // 2. Initialize database and background services
     try {
         await initDb();
+        // Recover any dangling scans from previous server restarts
+        prisma.project.updateMany({
+            where: { status: 'scanning' },
+            data: { status: 'failed' }
+        }).then((res) => {
+            if (res?.count > 0)
+                console.log(`Cleaned up ${res.count} orphaned scanning jobs.`);
+        }).catch(() => { });
     }
     catch (error) {
         console.error('⚠️  Database initial connection error (will retry on incoming requests):', error);

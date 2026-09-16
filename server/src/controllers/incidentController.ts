@@ -93,4 +93,36 @@ export class IncidentController {
       res.status(500).json({ message: error.message || 'Simulation failed' });
     }
   }
+
+  static async testEmailAlert(req: AuthRequest, res: Response) {
+    try {
+      const recipientEmail = req.body?.toEmail || req.user?.email || process.env.GMAIL_USER;
+      if (!recipientEmail) {
+        return res.status(400).json({ message: 'Recipient email is required.' });
+      }
+
+      const { EmailService } = await import('../services/incident/notification/emailService.js');
+      const sent = await EmailService.sendLatencyAlert({
+        toEmail: recipientEmail,
+        userName: req.user?.name || 'Administrator',
+        projectName: 'Telemetry Verification',
+        endpointPath: '/api/v1/checkout',
+        method: 'POST',
+        currentLatencyMs: 1680,
+        baselineLatencyMs: 140,
+        latencyDeviationPct: 1100,
+        status: 200,
+        reason: 'Manual Test: Sudden Latency Surge Alert Verification'
+      });
+
+      if (sent) {
+        return res.json({ success: true, message: `Test latency alert successfully sent to ${recipientEmail}` });
+      } else {
+        return res.status(500).json({ success: false, message: 'Failed to send alert email. Check server logs.' });
+      }
+    } catch (err: any) {
+      console.error('Test email error:', err);
+      return res.status(500).json({ message: err.message || 'Error sending test email' });
+    }
+  }
 }

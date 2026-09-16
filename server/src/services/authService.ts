@@ -7,7 +7,8 @@ const userRepository = new UserRepository();
 
 export class AuthService {
   async register(name: string, email: string, password?: string) {
-    const userExists = await userRepository.findByEmail(email);
+    const normalizedEmail = email.trim().toLowerCase();
+    const userExists = await userRepository.findByEmail(normalizedEmail);
     if (userExists) {
       const error = new Error('User already exists');
       (error as any).statusCode = 400;
@@ -22,7 +23,7 @@ export class AuthService {
 
     const user = await userRepository.create({
       name,
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
     });
 
@@ -35,7 +36,8 @@ export class AuthService {
   }
 
   async login(email: string, password?: string) {
-    const user = await userRepository.findByEmail(email);
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await userRepository.findByEmail(normalizedEmail);
     if (!user || (password && !user.password)) {
       const error = new Error('Invalid email or password');
       (error as any).statusCode = 401;

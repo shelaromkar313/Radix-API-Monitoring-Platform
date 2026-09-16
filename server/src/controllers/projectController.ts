@@ -1,8 +1,10 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/authMiddleware.js';
 import { ProjectService } from '../services/projectService.js';
+import { ExportService } from '../services/exportService.js';
 
 const projectService = new ProjectService();
+const exportService = new ExportService();
 
 export const importRepository = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   const { repositoryUrl } = req.body;
@@ -39,6 +41,19 @@ export const getProjectDetails = async (req: AuthRequest, res: Response, next: N
   }
 };
 
+export const rescanProject = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
+  try {
+    const project = await projectService.rescanProject(req.params.id as string, (req.user as any).id);
+    res.json({ message: 'Scan initiated', project });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const deleteProject = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   if (!req.user) {
     res.status(401).json({ message: 'Unauthorized' });
@@ -51,4 +66,27 @@ export const deleteProject = async (req: AuthRequest, res: Response, next: NextF
     next(error);
   }
 };
+
+export const exportOpenApi = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const spec = await exportService.generateOpenApiSpec(req.params.id as string);
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="openapi-${req.params.id}.json"`);
+    res.json(spec);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const exportPostman = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const collection = await exportService.generatePostmanCollection(req.params.id as string);
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="postman-collection-${req.params.id}.json"`);
+    res.json(collection);
+  } catch (error) {
+    next(error);
+  }
+};
+
 

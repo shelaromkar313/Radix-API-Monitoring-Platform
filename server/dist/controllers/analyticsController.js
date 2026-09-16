@@ -14,3 +14,16 @@ export const getProjectAnalytics = async (req, res, next) => {
         next(error);
     }
 };
+export const getPlatformOverview = async (req, res, next) => {
+    if (!req.user) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+    }
+    try {
+        const result = await analyticsService.getPlatformOverview(req.user.id);
+        res.json(result);
+    }
+    catch (error) {
+        next(error);
+    }
+};

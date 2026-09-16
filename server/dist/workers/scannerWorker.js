@@ -7,24 +7,34 @@ import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
 const execAsync = promisify(exec);
+const EXCLUDED_DIRS = new Set([
+    'node_modules', '.git', 'dist', 'vendor', '.venv', 'venv', 'build', '.next', '.nuxt',
+    'target', 'bin', 'obj', 'coverage', '.idea', '.vscode', '.gradle', '.cargo', 'out'
+]);
 const findFiles = (dir, fileList = []) => {
-    const files = fs.readdirSync(dir);
-    for (const file of files) {
-        if (file === 'node_modules' || file === '.git' || file === 'dist' || file === 'vendor' || file === '.venv')
-            continue;
-        const stat = fs.statSync(path.join(dir, file));
-        if (stat.isDirectory()) {
-            findFiles(path.join(dir, file), fileList);
+    try {
+        const files = fs.readdirSync(dir);
+        for (const file of files) {
+            if (EXCLUDED_DIRS.has(file))
+                continue;
+            const fullPath = path.join(dir, file);
+            const stat = fs.statSync(fullPath);
+            if (stat.isDirectory()) {
+                findFiles(fullPath, fileList);
+            }
+            else if (file.endsWith('.ts') ||
+                file.endsWith('.js') ||
+                file.endsWith('.php') ||
+                file.endsWith('.py') ||
+                file.endsWith('.go') ||
+                file.endsWith('.java') ||
+                file.endsWith('.cs')) {
+                fileList.push(fullPath);
+            }
         }
-        else if (file.endsWith('.ts') ||
-            file.endsWith('.js') ||
-            file.endsWith('.php') ||
-            file.endsWith('.py') ||
-            file.endsWith('.go') ||
-            file.endsWith('.java') ||
-            file.endsWith('.cs')) {
-            fileList.push(path.join(dir, file));
-        }
+    }
+    catch (err) {
+        // Gracefully handle unreadable directories
     }
     return fileList;
 };
@@ -82,9 +92,18 @@ const isGitUrl = (url) => {
     const clean = (url || '').trim().toLowerCase();
     return clean.includes('github.com') || clean.includes('gitlab.com') || clean.includes('bitbucket.org') || clean.endsWith('.git');
 };
+const getSafeIO = () => {
+    try {
+        return getIO();
+    }
+    catch {
+        return null;
+    }
+};
 const scanLiveService = async (projectId, liveUrl, io) => {
     console.log(`Scanning live service for project ${projectId}: ${liveUrl}`);
-    io.to(projectId).emit('status_update', { status: 'scanning', message: 'Connecting to live service...' });
+    if (io)
+        io.to(projectId).emit('status_update', { status: 'scanning', message: 'Connecting to live service...' });
     const cleanBase = liveUrl.trim().replace(/\/+$/, '');
     const discoveredRoutes = [];
     // 1. Try Swagger / OpenAPI discovery
@@ -129,15 +148,15 @@ const scanLiveService = async (projectId, liveUrl, io) => {
     }
     // 3. Save to database
     await prisma.endpoint.deleteMany({ where: { project_id: projectId } });
-    for (const route of discoveredRoutes) {
-        await prisma.endpoint.create({
-            data: {
+    if (discoveredRoutes.length > 0) {
+        await prisma.endpoint.createMany({
+            data: discoveredRoutes.map(route => ({
                 project_id: projectId,
                 method: route.method,
                 path: route.path,
-                request_schema: route.request_schema || null,
-                response_schema: route.response_schema || null
-            }
+                request_schema: (route.request_schema || null),
+                response_schema: (route.response_schema || null)
+            }))
         });
     }
     await prisma.project.update({ where: { id: projectId }, data: { status: 'completed' } });
@@ -147,16 +166,18 @@ const scanLiveService = async (projectId, liveUrl, io) => {
         }
         catch { }
     }
-    io.to(projectId).emit('status_update', { status: 'completed', message: 'Live service connected and endpoints ready' });
+    if (io)
+        io.to(projectId).emit('status_update', { status: 'completed', message: 'Live service connected and endpoints ready' });
     console.log(`Successfully completed live service scan for project ${projectId}. Registered ${discoveredRoutes.length} endpoints.`);
 };
 export const processScanJob = async (projectId, repositoryUrl) => {
     console.log(`Processing Job for Project ${projectId}: ${repositoryUrl}`);
-    const io = getIO();
+    const io = getSafeIO();
     const tempDir = path.join(process.cwd(), '.temp', projectId);
     try {
         await prisma.project.update({ where: { id: projectId }, data: { status: 'scanning' } });
-        io.to(projectId).emit('status_update', { status: 'scanning', message: 'Scanning started' });
+        if (io)
+            io.to(projectId).emit('status_update', { status: 'scanning', message: 'Scanning started' });
         // Handle Live API / Web URLs instantly without git clone
         if (!isGitUrl(repositoryUrl)) {
             await scanLiveService(projectId, repositoryUrl, io);
@@ -166,33 +187,36 @@ export const processScanJob = async (projectId, repositoryUrl) => {
         if (fs.existsSync(tempDir)) {
             fs.rmSync(tempDir, { recursive: true, force: true });
         }
+        fs.mkdirSync(path.dirname(tempDir), { recursive: true });
         await execAsync(`git clone ${repositoryUrl} "${tempDir}" --depth 1`, {
-            timeout: 25000,
+            timeout: 60000,
             env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }
         });
-        io.to(projectId).emit('status_update', { status: 'processing', message: 'Analyzing code structure...' });
+        if (io)
+            io.to(projectId).emit('status_update', { status: 'processing', message: 'Analyzing code structure...' });
         // 2. Parse Files
         const files = findFiles(tempDir);
         const extractedRoutes = extractRoutesFromFiles(files);
-        // 3. Save to DB
-        // Clear old endpoints if any for re-scan
+        // 3. Save to DB using bulk createMany
         await prisma.endpoint.deleteMany({ where: { project_id: projectId } });
-        for (const route of extractedRoutes) {
-            const mockRequest = ['POST', 'PUT', 'PATCH'].includes(route.method)
-                ? { exampleField: "exampleValue", message: "Auto-generated request schema" }
-                : null;
-            const mockResponse = {
-                success: true,
-                message: `Mock response for ${route.method} ${route.path}`
-            };
-            await prisma.endpoint.create({
-                data: {
-                    project_id: projectId,
-                    method: route.method,
-                    path: route.path,
-                    request_schema: mockRequest,
-                    response_schema: mockResponse
-                }
+        if (extractedRoutes.length > 0) {
+            await prisma.endpoint.createMany({
+                data: extractedRoutes.map(route => {
+                    const mockRequest = ['POST', 'PUT', 'PATCH'].includes(route.method)
+                        ? { exampleField: "exampleValue", message: "Auto-generated request schema" }
+                        : null;
+                    const mockResponse = {
+                        success: true,
+                        message: `Mock response for ${route.method} ${route.path}`
+                    };
+                    return {
+                        project_id: projectId,
+                        method: route.method,
+                        path: route.path,
+                        request_schema: mockRequest,
+                        response_schema: mockResponse
+                    };
+                })
             });
         }
         // 4. Update Status and Clear Cache
@@ -202,16 +226,18 @@ export const processScanJob = async (projectId, repositoryUrl) => {
                 await redisClient.del(`endpoints:${projectId}`);
             }
             catch (err) {
-                // Silent cleanup: intermittent Redis errors shouldn't crash or worry the user after a successful scan.
+                // Silent cleanup
             }
         }
-        io.to(projectId).emit('status_update', { status: 'completed', message: 'Scanning completed successfully' });
+        if (io)
+            io.to(projectId).emit('status_update', { status: 'completed', message: 'Scanning completed successfully' });
         console.log(`Successfully completed scan for project ${projectId}. Found ${extractedRoutes.length} endpoints.`);
     }
     catch (error) {
         console.error(`Error processing project ${projectId}:`, error);
         await prisma.project.update({ where: { id: projectId }, data: { status: 'failed' } });
-        io.to(projectId).emit('status_update', { status: 'failed', message: 'Scanning failed' });
+        if (io)
+            io.to(projectId).emit('status_update', { status: 'failed', message: 'Scanning failed' });
     }
     finally {
         if (fs.existsSync(tempDir)) {

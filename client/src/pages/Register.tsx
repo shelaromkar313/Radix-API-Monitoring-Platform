@@ -25,7 +25,7 @@ const Register = () => {
     setLoading(true);
     
     try {
-      const response = await api.post('/auth/register', { name, email, password });
+      const response = await api.post('/auth/register', { name: name.trim(), email: email.trim().toLowerCase(), password });
       dispatch(setCredentials({ user: response.data, token: response.data.token }));
       navigate('/dashboard');
     } catch (err: any) {
@@ -37,6 +37,10 @@ const Register = () => {
 
   const handleGoogleLogin = async () => {
     setError('');
+    if (!auth || !googleProvider) {
+      setError('Google authentication is not configured. Please supply Firebase credentials in client .env');
+      return;
+    }
     setLoading(true);
     try {
       const result = await signInWithPopup(auth, googleProvider);

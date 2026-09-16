@@ -14,16 +14,19 @@ interface AIExplanationProps {
 const AIExplanation = ({ endpointId, initialExplanation }: AIExplanationProps) => {
   const [loading, setLoading] = useState(false);
   const [explanation, setExplanation] = useState<any>(initialExplanation);
+  const [error, setError] = useState<string | null>(null);
   const dispatch = useDispatch();
 
   const handleExplain = async () => {
     setLoading(true);
+    setError(null);
     try {
       const result = await explainEndpoint(endpointId);
       setExplanation(result);
       dispatch(setAiExplanation({ endpointId, explanation: result }));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to get AI explanation', err);
+      setError(err.response?.data?.message || err.message || 'Unable to connect to AI engine. Please retry.');
     } finally {
       setLoading(false);
     }
@@ -74,6 +77,13 @@ const AIExplanation = ({ endpointId, initialExplanation }: AIExplanationProps) =
           {loading ? 'Generating Docs...' : explanation ? 'Regenerate Docs' : 'Generate Smart Docs'}
         </button>
       </div>
+
+      {error && (
+        <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 text-sm flex items-center justify-between">
+          <span>{error}</span>
+          <button onClick={handleExplain} className="text-xs font-bold underline hover:no-underline ml-4">Retry</button>
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
         {loading ? (

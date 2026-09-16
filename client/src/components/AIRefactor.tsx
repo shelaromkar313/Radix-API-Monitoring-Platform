@@ -10,14 +10,17 @@ interface AIRefactorProps {
 const AIRefactor = ({ endpointId }: AIRefactorProps) => {
   const [loading, setLoading] = useState(false);
   const [refactor, setRefactor] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleRefactor = async () => {
     setLoading(true);
+    setError(null);
     try {
       const result = await refactorEndpoint(endpointId);
       setRefactor(result);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to run AI refactoring suggestions', err);
+      setError(err.response?.data?.message || err.message || 'Optimization engine unavailable. Please retry.');
     } finally {
       setLoading(false);
     }
@@ -43,12 +46,12 @@ const AIRefactor = ({ endpointId }: AIRefactorProps) => {
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-6">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-slate-900 rounded-2xl text-white shadow-xl shadow-slate-200">
-            <Wrench className="h-6 w-6 text-indigo-400" />
+          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+            <Wrench className="h-6 w-6" />
           </div>
           <div>
-            <h3 className="font-black text-xl text-slate-900 leading-tight">Architecture & Refactoring</h3>
-            <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mt-1">Code Structure Optimization</p>
+            <h3 className="font-black text-xl text-slate-900 leading-tight">Code Optimization & Refactoring</h3>
+            <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mt-1">NVIDIA NIM Modernizer</p>
           </div>
         </div>
         
@@ -65,6 +68,13 @@ const AIRefactor = ({ endpointId }: AIRefactorProps) => {
           {loading ? 'Analyzing Structure...' : refactor ? 'Regenerate Suggestions' : 'Get Refactoring Ideas'}
         </button>
       </div>
+
+      {error && (
+        <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 text-sm flex items-center justify-between">
+          <span>{error}</span>
+          <button onClick={handleRefactor} className="text-xs font-bold underline hover:no-underline ml-4">Retry</button>
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
         {loading ? (

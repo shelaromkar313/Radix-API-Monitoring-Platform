@@ -10,14 +10,17 @@ interface AIAuditProps {
 const AIAudit = ({ endpointId }: AIAuditProps) => {
   const [loading, setLoading] = useState(false);
   const [audit, setAudit] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleAudit = async () => {
     setLoading(true);
+    setError(null);
     try {
       const result = await auditEndpoint(endpointId);
       setAudit(result);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to run AI audit', err);
+      setError(err.response?.data?.message || err.message || 'Audit engine connection error. Please retry.');
     } finally {
       setLoading(false);
     }
@@ -55,8 +58,8 @@ const AIAudit = ({ endpointId }: AIAuditProps) => {
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-6">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-slate-900 rounded-2xl text-white shadow-xl shadow-slate-200">
-            <Shield className="h-6 w-6 text-rose-400" />
+          <div className="p-3 bg-rose-500/10 text-rose-600 rounded-2xl">
+            <ShieldAlert className="h-6 w-6" />
           </div>
           <div>
             <h3 className="font-black text-xl text-slate-900 leading-tight">Security Auditor</h3>
@@ -77,6 +80,13 @@ const AIAudit = ({ endpointId }: AIAuditProps) => {
           {loading ? 'Scanning...' : audit ? 'Rescan Endpoint' : 'Run Security Audit'}
         </button>
       </div>
+
+      {error && (
+        <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 text-sm flex items-center justify-between">
+          <span>{error}</span>
+          <button onClick={handleAudit} className="text-xs font-bold underline hover:no-underline ml-4">Retry</button>
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
         {loading ? (

@@ -58,4 +58,39 @@ export class AnalyticsRepository {
             where: { project_id: projectId }
         });
     }
+    async getPlatformOverview(userId) {
+        const totalProjects = await prisma.project.count({ where: { user_id: userId } });
+        const totalEndpoints = await prisma.endpoint.count({ where: { project: { user_id: userId } } });
+        const totalCalls = await prisma.requestHistory.count({ where: { user_id: userId } });
+        const avgDurationResult = await prisma.requestHistory.aggregate({
+            where: { user_id: userId },
+            _avg: { duration: true }
+        });
+        const errorCount = await prisma.requestHistory.count({
+            where: { user_id: userId, status: { gte: 400 } }
+        });
+        const errorRate = totalCalls > 0 ? ((errorCount / totalCalls) * 100).toFixed(2) : '0.00';
+        const recentHistory = await prisma.requestHistory.findMany({
+            where: { user_id: userId },
+            orderBy: { created_at: 'desc' },
+            take: 15,
+            select: {
+                id: true,
+                method: true,
+                url: true,
+                status: true,
+                duration: true,
+                created_at: true
+            }
+        });
+        return {
+            totalProjects,
+            totalEndpoints,
+            totalCalls,
+            avgLatencyMs: Math.round(avgDurationResult._avg.duration || 0),
+            errorRatePct: errorRate,
+            errorCount,
+            recentHistory
+        };
+    }
 }

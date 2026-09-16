@@ -19,4 +19,13 @@ export class AnalyticsService {
             throw new Error('Failed to fetch project analytics');
         }
     }
+    async getPlatformOverview(userId) {
+        try {
+            return await analyticsRepository.getPlatformOverview(userId);
+        }
+        catch (error) {
+            console.error('Platform Analytics Error:', error);
+            throw new Error('Failed to fetch platform overview');
+        }
+    }
 }

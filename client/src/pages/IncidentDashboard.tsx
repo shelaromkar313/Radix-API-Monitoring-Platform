@@ -14,7 +14,8 @@ import {
   TrendingUp,
   Cpu,
   RefreshCw,
-  Flame
+  Flame,
+  Mail
 } from 'lucide-react';
 import type { RootState } from '../redux/store';
 import { incidentService, type IncidentItem } from '../services/incidentService';
@@ -30,6 +31,7 @@ const IncidentDashboard: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
+  const [isTestingEmail, setIsTestingEmail] = useState<boolean>(false);
   const [simulationToast, setSimulationToast] = useState<string | null>(null);
 
   const fetchIncidentsAndStats = async () => {
@@ -105,6 +107,20 @@ const IncidentDashboard: React.FC = () => {
     } finally {
       setIsSimulating(false);
       setTimeout(() => setSimulationToast(null), 5000);
+    }
+  };
+
+  const handleTestEmail = async () => {
+    setIsTestingEmail(true);
+    setSimulationToast('📧 Dispatching test latency alert email to configured address...');
+    try {
+      const res = await incidentService.testEmailAlert();
+      setSimulationToast(res.message || '✅ Test latency alert email sent successfully! Please check your inbox.');
+    } catch (err: any) {
+      setSimulationToast(`❌ Email test failed: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setIsTestingEmail(false);
+      setTimeout(() => setSimulationToast(null), 6000);
     }
   };
 
@@ -216,6 +232,15 @@ const IncidentDashboard: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={handleTestEmail}
+              disabled={isTestingEmail}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-white hover:bg-slate-50 text-indigo-600 border border-indigo-200 shadow-sm active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+              title="Send a sample latency alert email to test your SMTP / Gmail configuration"
+            >
+              <Mail className="w-4 h-4 text-indigo-600" />
+              {isTestingEmail ? 'Sending Test...' : 'Test Latency Email'}
+            </button>
             <button
               onClick={handleSimulateOutage}
               disabled={isSimulating}

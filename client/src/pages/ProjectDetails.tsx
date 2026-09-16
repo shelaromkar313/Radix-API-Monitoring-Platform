@@ -11,38 +11,112 @@ import AIExplanation from '../components/AIExplanation';
 import AIAudit from '../components/AIAudit';
 import AIRefactor from '../components/AIRefactor';
 import AITestCases from '../components/AITestCases';
-import { Search, Code as CodeIcon, Server, Database, ArrowLeft, Terminal, LayoutDashboard, Settings, Info, ChevronRight } from 'lucide-react';
+import EndpointMetrics from '../components/EndpointMetrics';
+import { Search, Code as CodeIcon, Server, Database, ArrowLeft, Terminal, Info, ChevronRight, Download, FileText, ChevronDown, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const ProjectDetails = () => {
   const { id } = useParams<{ id: string }>();
+  const [project, setProject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [rescanning, setRescanning] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   
   const dispatch = useDispatch();
   const { endpoints, selectedEndpoint } = useSelector((state: RootState) => state.endpoint);
 
-  const fetchEndpoints = async () => {
-    setLoading(true);
+  const fetchProjectData = async (silent = false) => {
+    if (!silent) setLoading(true);
     setErrorMessage(null);
     try {
-      const res = await api.get(`/endpoints/project/${id}`);
-      dispatch(setEndpoints(res.data));
-      if (res.data && res.data.length > 0 && !selectedEndpoint) {
-        dispatch(setSelectedEndpoint(res.data[0]));
+      const [epRes, projRes] = await Promise.allSettled([
+        api.get(`/endpoints/project/${id}`),
+        api.get(`/projects/${id}`)
+      ]);
+      if (epRes.status === 'fulfilled') {
+        dispatch(setEndpoints(epRes.value.data));
+        if (epRes.value.data && epRes.value.data.length > 0 && !selectedEndpoint) {
+          dispatch(setSelectedEndpoint(epRes.value.data[0]));
+        }
+      }
+      if (projRes.status === 'fulfilled') {
+        setProject(projRes.value.data);
       }
     } catch (error: any) {
-      console.error('Failed to fetch endpoints', error);
+      console.error('Failed to fetch project details', error);
       setErrorMessage(error.response?.data?.message || 'Failed to load endpoints');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (id) fetchEndpoints();
+    if (id) fetchProjectData();
   }, [id, dispatch]);
+
+  // Real-time polling while status is scanning
+  useEffect(() => {
+    if (project?.status !== 'scanning' && project?.status !== 'pending') return;
+    const interval = setInterval(() => {
+      fetchProjectData(true);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [project?.status, id]);
+
+  const handleRescan = async () => {
+    setRescanning(true);
+    try {
+      await api.post(`/projects/${id}/rescan`);
+      setProject((prev: any) => ({ ...prev, status: 'scanning' }));
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to trigger re-scan');
+    } finally {
+      setRescanning(false);
+    }
+  };
+
+  const handleExportOpenApi = async () => {
+    setExporting(true);
+    try {
+      const res = await api.get(`/projects/${id}/export/openapi`);
+      const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `openapi-${id}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setExportOpen(false);
+    } catch (err) {
+      console.error('Failed to export OpenAPI spec', err);
+      alert('Failed to export OpenAPI specification.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExportPostman = async () => {
+    setExporting(true);
+    try {
+      const res = await api.get(`/projects/${id}/export/postman`);
+      const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `postman-collection-${id}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setExportOpen(false);
+    } catch (err) {
+      console.error('Failed to export Postman collection', err);
+      alert('Failed to export Postman collection.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const methodStyles = (method: string, active: boolean) => {
     const methods: Record<string, string> = {
@@ -84,7 +158,14 @@ const ProjectDetails = () => {
             </div>
           </div>
           
-          <div className="flex-1 overflow-y-auto p-4 space-y-1 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
+            {project?.status === 'scanning' && (
+              <div className="p-4 mb-3 bg-blue-50/70 border border-blue-100 rounded-2xl text-center space-y-2">
+                <RefreshCw className="h-5 w-5 text-blue-600 animate-spin mx-auto" />
+                <p className="text-xs font-bold text-blue-800 uppercase tracking-wider">Scanning Codebase</p>
+                <p className="text-[11px] text-blue-600">Extracting API routes in background...</p>
+              </div>
+            )}
             {loading ? (
               <div className="space-y-3">
                 {[1, 2, 3, 4, 5, 6].map(i => (
@@ -95,16 +176,26 @@ const ProjectDetails = () => {
               <div className="py-12 px-4 text-center space-y-3">
                 <p className="text-xs font-bold text-rose-500">{errorMessage}</p>
                 <button
-                  onClick={fetchEndpoints}
+                  onClick={() => fetchProjectData()}
                   className="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 transition-colors"
                 >
                   Retry Loading
                 </button>
               </div>
             ) : filteredEndpoints.length === 0 ? (
-              <div className="py-20 text-center space-y-4">
+              <div className="py-16 text-center space-y-4 px-2">
                 <Search className="h-10 w-10 text-slate-200 mx-auto" />
-                <p className="text-sm font-bold text-slate-400">No endpoints found in this repository</p>
+                <p className="text-sm font-bold text-slate-400">
+                  {project?.status === 'scanning' ? 'Discovering endpoints...' : 'No endpoints detected'}
+                </p>
+                <button
+                  onClick={handleRescan}
+                  disabled={rescanning || project?.status === 'scanning'}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${rescanning || project?.status === 'scanning' ? 'animate-spin' : ''}`} />
+                  Re-scan Repository
+                </button>
               </div>
             ) : (
               filteredEndpoints.map((ep: Endpoint) => (
@@ -156,30 +247,77 @@ const ProjectDetails = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="flex gap-3">
-                    <button className="p-3 bg-white hover:bg-slate-50 rounded-xl transition-all border border-slate-200 shadow-sm text-slate-400 hover:text-slate-900">
-                      <Settings className="h-5 w-5" />
+                  <div className="flex items-center gap-3 relative">
+                    <button
+                      onClick={handleRescan}
+                      disabled={rescanning || project?.status === 'scanning'}
+                      className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all shadow-sm disabled:opacity-50"
+                      title="Re-scan code repository for endpoints"
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 text-primary ${rescanning || project?.status === 'scanning' ? 'animate-spin' : ''}`} />
+                      <span>{project?.status === 'scanning' ? 'Scanning...' : 'Re-scan'}</span>
                     </button>
-                    <button className="p-3 bg-white hover:bg-slate-50 rounded-xl transition-all border border-slate-200 shadow-sm text-slate-400 hover:text-slate-900">
-                      <LayoutDashboard className="h-5 w-5" />
-                    </button>
+
+                    <div className="relative">
+                      <button 
+                        onClick={() => setExportOpen(!exportOpen)}
+                        disabled={exporting}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm disabled:opacity-50"
+                      >
+                        <Download className="h-4 w-4" />
+                        <span>{exporting ? 'Exporting...' : 'Export Specs'}</span>
+                        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${exportOpen ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {exportOpen && (
+                        <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl p-2 z-50 animate-in fade-in slide-in-from-top-2">
+                          <button
+                            onClick={handleExportOpenApi}
+                            className="w-full text-left px-3.5 py-2.5 hover:bg-slate-50 rounded-xl flex items-center gap-3 text-xs font-bold text-slate-700 hover:text-slate-900 transition-colors"
+                          >
+                            <FileText className="h-4 w-4 text-emerald-500" />
+                            <div>
+                              <div className="leading-tight">OpenAPI 3.1 Specification</div>
+                              <span className="text-[10px] text-slate-400 font-normal">JSON / Swagger compatible</span>
+                            </div>
+                          </button>
+                          <button
+                            onClick={handleExportPostman}
+                            className="w-full text-left px-3.5 py-2.5 hover:bg-slate-50 rounded-xl flex items-center gap-3 text-xs font-bold text-slate-700 hover:text-slate-900 transition-colors"
+                          >
+                            <Download className="h-4 w-4 text-orange-500" />
+                            <div>
+                              <div className="leading-tight">Postman Collection v2.1</div>
+                              <span className="text-[10px] text-slate-400 font-normal">Ready for 1-click import</span>
+                            </div>
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
+                {/* Real-time Endpoint Observability & Telemetry (Latency, Requests, Errors) */}
+                <EndpointMetrics
+                  key={`metrics-${selectedEndpoint.id}`}
+                  endpoint={selectedEndpoint}
+                />
+
                 {/* AI Explanation Integrated */}
                 <AIExplanation 
+                  key={`explanation-${selectedEndpoint.id}`}
                   endpointId={selectedEndpoint.id} 
                   initialExplanation={selectedEndpoint.ai_explanation} 
                 />
 
                 {/* AI Security Auditor Integrated */}
-                <AIAudit endpointId={selectedEndpoint.id} />
+                <AIAudit key={`audit-${selectedEndpoint.id}`} endpointId={selectedEndpoint.id} />
 
                 {/* AI Refactoring Expert Integrated */}
-                <AIRefactor endpointId={selectedEndpoint.id} />
+                <AIRefactor key={`refactor-${selectedEndpoint.id}`} endpointId={selectedEndpoint.id} />
 
                 {/* AI QA Test Generator Integrated */}
-                <AITestCases endpointId={selectedEndpoint.id} />
+                <AITestCases key={`tests-${selectedEndpoint.id}`} endpointId={selectedEndpoint.id} />
 
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
                   {/* Left Column: Schemas */}
@@ -242,6 +380,44 @@ const ProjectDetails = () => {
                   </div>
                 </div>
               </motion.div>
+            ) : project?.status === 'scanning' ? (
+              <div className="h-full flex flex-col items-center justify-center space-y-6 text-center max-w-md mx-auto p-8">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-blue-500/10 blur-3xl rounded-full" />
+                  <div className="relative p-8 bg-blue-50 text-blue-600 rounded-full border border-blue-100 shadow-premium">
+                    <RefreshCw className="w-12 h-12 animate-spin" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-black text-slate-900">Scanning Repository</h2>
+                  <p className="text-slate-500 text-sm font-medium leading-relaxed">
+                    RADIX is actively cloning and parsing API route declarations from <span className="font-mono font-semibold text-slate-700">{project?.name || 'repository'}</span>. Endpoints will automatically populate once discovery completes.
+                  </p>
+                </div>
+              </div>
+            ) : endpoints.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center space-y-6 text-center max-w-md mx-auto p-8">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-amber-500/10 blur-3xl rounded-full" />
+                  <div className="relative p-8 bg-amber-50 text-amber-600 rounded-full border border-amber-100 shadow-premium">
+                    <CodeIcon className="w-12 h-12" />
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <h2 className="text-2xl font-black text-slate-900">No Endpoints Detected</h2>
+                  <p className="text-slate-500 text-sm font-medium leading-relaxed">
+                    No route definitions were discovered in this repository yet, or the previous scan was interrupted.
+                  </p>
+                  <button
+                    onClick={handleRescan}
+                    disabled={rescanning}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-bold shadow-lg shadow-slate-200 transition-all disabled:opacity-50"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${rescanning ? 'animate-spin' : ''}`} />
+                    <span>{rescanning ? 'Starting Scan...' : 'Re-scan Repository'}</span>
+                  </button>
+                </div>
+              </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center space-y-8">
                 <div className="relative">

@@ -95,6 +95,18 @@ const Dashboard = () => {
     }
   };
 
+  const handleRescanProject = async (e: React.MouseEvent, projectId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await api.post(`/projects/${projectId}/rescan`);
+      dispatch(setProjects(projects.map(p => p.id === projectId ? { ...p, status: 'scanning' } : p)));
+    } catch (err: any) {
+      console.error('Failed to trigger re-scan', err);
+      alert(err.response?.data?.message || 'Failed to trigger re-scan');
+    }
+  };
+
   const filteredProjects = projects.filter(p => {
     const name = (p.repository_url || '').toLowerCase();
     return name.includes(filterText.toLowerCase());
@@ -242,6 +254,15 @@ const Dashboard = () => {
                             {project.status}
                           </span>
                         )}
+                        <button
+                          type="button"
+                          onClick={(e) => handleRescanProject(e, project.id)}
+                          disabled={project.status === 'scanning'}
+                          title="Re-scan repository"
+                          className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors disabled:opacity-30"
+                        >
+                          <RefreshCw className={`h-4 w-4 ${project.status === 'scanning' ? 'animate-spin text-primary' : ''}`} />
+                        </button>
                         <button
                           type="button"
                           onClick={(e) => handleDeleteProject(e, project.id, displayName || 'Project')}

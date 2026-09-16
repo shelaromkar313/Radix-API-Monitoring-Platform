@@ -1,5 +1,5 @@
 import express from 'express';
-import { executeRequest, getRequestHistory } from '../controllers/testingController.js';
+import { executeRequest, getRequestHistory, getEndpointMetrics } from '../controllers/testingController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -9,5 +9,6 @@ router.use(protect);
 
 router.post('/execute', executeRequest as any);
 router.get('/history/:endpointId', getRequestHistory as any);
+router.get('/metrics/:endpointId', getEndpointMetrics as any);
 
 export default router;

@@ -29,7 +29,11 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const isAuthRoute = error.config?.url?.includes('/auth/login') ||
+                        error.config?.url?.includes('/auth/register') ||
+                        error.config?.url?.includes('/auth/google');
+
+    if (error.response?.status === 401 && !isAuthRoute) {
       console.warn('Session expired or unauthorized (401). Clearing credentials.');
       localStorage.removeItem('token');
       localStorage.removeItem('user');

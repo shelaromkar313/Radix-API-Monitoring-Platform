@@ -1,7 +1,10 @@
 import { useState } from 'react';
-import { Beaker, FlaskConical, Loader2, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
+import { Beaker, FlaskConical, Loader2, RefreshCw, CheckCircle, XCircle, Play, CheckCircle2, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { generateTestCases } from '../services/aiService';
+import { executeApiRequest } from '../services/testingService';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../redux/store';
 
 interface AITestCasesProps {
   endpointId: string;
@@ -10,9 +13,15 @@ interface AITestCasesProps {
 const AITestCases = ({ endpointId }: AITestCasesProps) => {
   const [loading, setLoading] = useState(false);
   const [testCasesData, setTestCasesData] = useState<any>(null);
+  const [runningSuite, setRunningSuite] = useState(false);
+  const [testResults, setTestResults] = useState<Record<number, any>>({});
+
+  const { selectedEndpoint } = useSelector((state: RootState) => state.endpoint);
+  const { currentProject } = useSelector((state: RootState) => state.project);
 
   const handleGenerate = async () => {
     setLoading(true);
+    setTestResults({});
     try {
       const result = await generateTestCases(endpointId);
       setTestCasesData(result);
@@ -21,6 +30,54 @@ const AITestCases = ({ endpointId }: AITestCasesProps) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRunSuite = async () => {
+    if (!testCasesData?.test_cases || testCasesData.test_cases.length === 0 || !selectedEndpoint) return;
+    setRunningSuite(true);
+    const results: Record<number, any> = {};
+
+    const isLive = Boolean(currentProject?.repository_url && !currentProject.repository_url.includes('github.com'));
+    const backendBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/api$/, '');
+    const targetUrl = isLive && currentProject?.repository_url
+      ? `${currentProject.repository_url.replace(/\/+$/, '')}${selectedEndpoint.path}`
+      : `${backendBase}/api/mock/${selectedEndpoint.project_id}${selectedEndpoint.path}`;
+
+    for (let i = 0; i < testCasesData.test_cases.length; i++) {
+      const test = testCasesData.test_cases[i];
+      const isPositive = test.name?.toLowerCase().includes('success') || test.name?.toLowerCase().includes('valid');
+      const expectedStatus = test.expected_output?.statusCode || (isPositive ? 200 : 400);
+
+      try {
+        const res = await executeApiRequest({
+          endpointId,
+          method: selectedEndpoint.method || 'GET',
+          url: targetUrl,
+          headers: test.input?.headers || { 'Content-Type': 'application/json' },
+          body: test.input?.body
+        });
+
+        const passed = res.status === expectedStatus || (isPositive && res.status < 400) || (!isPositive && res.status >= 400);
+        results[i] = {
+          passed,
+          status: res.status,
+          expectedStatus,
+          duration: res.duration || 15,
+          response: res.response
+        };
+      } catch (err: any) {
+        results[i] = {
+          passed: false,
+          status: err.response?.status || 500,
+          expectedStatus,
+          duration: 0,
+          response: { error: err.message }
+        };
+      }
+      setTestResults({ ...results });
+    }
+
+    setRunningSuite(false);
   };
 
   const containerVariants = {
@@ -52,18 +109,31 @@ const AITestCases = ({ endpointId }: AITestCasesProps) => {
           </div>
         </div>
         
-        <button
-          onClick={handleGenerate}
-          disabled={loading}
-          className={`w-full sm:w-auto px-6 py-3 rounded-xl font-bold text-sm flex items-center justify-center transition-all disabled:opacity-50 shadow-lg active:scale-95 ${
-            testCasesData 
-              ? 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200 shadow-none' 
-              : 'bg-teal-600 text-white hover:bg-teal-700 shadow-teal-600/20'
-          }`}
-        >
-          {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : testCasesData ? <RefreshCw className="h-4 w-4 mr-2" /> : <FlaskConical className="h-4 w-4 mr-2" />}
-          {loading ? 'Synthesizing Tests...' : testCasesData ? 'Regenerate Tests' : 'Generate Test Cases'}
-        </button>
+        <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
+          {testCasesData && (
+            <button
+              onClick={handleRunSuite}
+              disabled={runningSuite}
+              className="px-5 py-3 rounded-xl font-bold text-sm flex items-center justify-center transition-all bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20 disabled:opacity-50 active:scale-95"
+            >
+              {runningSuite ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Play className="h-4 w-4 mr-2" />}
+              {runningSuite ? 'Running Tests...' : 'Run Test Suite'}
+            </button>
+          )}
+
+          <button
+            onClick={handleGenerate}
+            disabled={loading || runningSuite}
+            className={`px-5 py-3 rounded-xl font-bold text-sm flex items-center justify-center transition-all disabled:opacity-50 shadow-lg active:scale-95 ${
+              testCasesData 
+                ? 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200 shadow-none' 
+                : 'bg-teal-600 text-white hover:bg-teal-700 shadow-teal-600/20'
+            }`}
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : testCasesData ? <RefreshCw className="h-4 w-4 mr-2" /> : <FlaskConical className="h-4 w-4 mr-2" />}
+            {loading ? 'Synthesizing Tests...' : testCasesData ? 'Regenerate' : 'Generate Test Cases'}
+          </button>
+        </div>
       </div>
 
       <AnimatePresence mode="wait">
@@ -88,18 +158,30 @@ const AITestCases = ({ endpointId }: AITestCasesProps) => {
               {testCasesData.test_cases?.length > 0 ? (
                 testCasesData.test_cases.map((test: any, idx: number) => {
                   const isPositive = test.name?.toLowerCase().includes('success') || test.name?.toLowerCase().includes('valid');
+                  const outcome = testResults[idx];
                   
                   return (
                     <motion.div key={idx} variants={itemVariants} className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                      <div className="px-6 py-4 border-b border-slate-200 bg-white flex items-center justify-between">
+                      <div className="px-6 py-4 border-b border-slate-200 bg-white flex items-center justify-between flex-wrap gap-3">
                         <div className="flex items-center gap-3">
                           {isPositive ? (
-                            <CheckCircle className="h-5 w-5 text-emerald-500" />
+                            <CheckCircle className="h-5 w-5 text-emerald-500 shrink-0" />
                           ) : (
-                            <XCircle className="h-5 w-5 text-rose-500" />
+                            <XCircle className="h-5 w-5 text-rose-500 shrink-0" />
                           )}
                           <h4 className="font-bold text-slate-900">{test.name || `Test Case #${idx + 1}`}</h4>
                         </div>
+                        {outcome && (
+                          <div className={`px-3 py-1 rounded-full text-xs font-black flex items-center gap-1.5 border ${
+                            outcome.passed
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-rose-50 text-rose-700 border-rose-200'
+                          }`}>
+                            {outcome.passed ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
+                            <span>{outcome.passed ? 'PASSED' : 'FAILED'}</span>
+                            <span className="font-mono text-[10px] opacity-75">({outcome.status} • {outcome.duration}ms)</span>
+                          </div>
+                        )}
                       </div>
                       
                       <div className="p-6 space-y-6">

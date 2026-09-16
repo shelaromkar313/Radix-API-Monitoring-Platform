@@ -35,7 +35,7 @@ export class AIService {
     }
 
     try {
-      const response = await nvidia.chat.completions.create({
+      const completionPromise = nvidia.chat.completions.create({
         model: MODEL,
         messages: [
           { role: "system", content: "You are a professional assistant. Follow instructions strictly." },
@@ -48,6 +48,12 @@ export class AIService {
         response_format: isJson ? { type: "json_object" } : undefined,
       } as any);
 
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('NVIDIA API request timed out (18s)')), 18000)
+      );
+
+      const response = (await Promise.race([completionPromise, timeoutPromise])) as any;
+
       const message = response.choices[0]?.message as any;
       const reasoning = message?.reasoning_content;
       if (reasoning) {
@@ -57,7 +63,7 @@ export class AIService {
       const content = message?.content || "";
       return isJson ? cleanLLMJSON(content) : content;
     } catch (error: any) {
-      console.warn(`⚠️  NVIDIA AI (${MODEL}) API call failed, using intelligent fallback:`, error.message || error);
+      console.warn(`⚠️  NVIDIA AI (${MODEL}) API call failed or timed out, using intelligent fallback:`, error.message || error);
       return null;
     }
   }

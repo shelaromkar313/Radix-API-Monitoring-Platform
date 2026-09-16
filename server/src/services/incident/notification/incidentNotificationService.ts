@@ -1,4 +1,6 @@
 import { getIO } from '../../../config/socket.js';
+import prisma from '../../../config/client.js';
+import { EmailService } from './emailService.js';
 
 export interface NotificationPayload {
   type: string;
@@ -12,7 +14,7 @@ export interface NotificationPayload {
 
 export class IncidentNotificationService {
   /**
-   * Dispatches notifications across configured delivery channels
+   * Dispatches notifications across configured delivery channels (Socket.io, Webhook, Email)
    */
   static async notify(payload: NotificationPayload) {
     const timestamp = new Date().toISOString();
@@ -29,7 +31,36 @@ export class IncidentNotificationService {
       // safe
     }
 
-    // 2. Webhook notification (if WEBHOOK_URL env configured)
+    // 2. Automated Email Alert to Project Owner
+    if (payload.projectId) {
+      try {
+        const project = await prisma.project.findUnique({
+          where: { id: payload.projectId },
+          include: { user: true }
+        });
+
+        if (project?.user?.email) {
+          const metrics = payload.metadata?.metrics;
+          await EmailService.sendLatencyAlert({
+            toEmail: project.user.email,
+            userName: project.user.name || 'API Administrator',
+            projectName: project.name || 'API Service',
+            endpointPath: payload.metadata?.endpointPath || payload.message,
+            method: payload.metadata?.method || 'GET',
+            currentLatencyMs: metrics?.currentLatencyMs || 0,
+            baselineLatencyMs: metrics?.baselineLatencyMs || 120,
+            latencyDeviationPct: metrics?.latencyDeviationPct || 0,
+            status: payload.metadata?.status || 200,
+            incidentId: payload.incidentId,
+            reason: payload.title
+          });
+        }
+      } catch (emailErr: any) {
+        console.warn(`[IncidentNotificationService] Email alert failed: ${emailErr.message}`);
+      }
+    }
+
+    // 3. Webhook notification (if WEBHOOK_URL env configured)
     if (process.env.INCIDENT_WEBHOOK_URL && typeof globalThis.fetch === 'function') {
       try {
         await globalThis.fetch(process.env.INCIDENT_WEBHOOK_URL, {

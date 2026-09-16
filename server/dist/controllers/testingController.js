@@ -24,3 +24,13 @@ export const getRequestHistory = async (req, res, next) => {
         next(error);
     }
 };
+export const getEndpointMetrics = async (req, res, next) => {
+    const { endpointId } = req.params;
+    try {
+        const metrics = await testingService.getMetrics(endpointId);
+        res.json(metrics);
+    }
+    catch (error) {
+        next(error);
+    }
+};

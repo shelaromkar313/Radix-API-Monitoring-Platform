@@ -32,7 +32,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const response = await api.post('/auth/login', { email, password });
+      const response = await api.post('/auth/login', { email: email.trim().toLowerCase(), password });
       dispatch(setCredentials({ user: response.data, token: response.data.token }));
       navigate('/dashboard');
     } catch (err: any) {
@@ -44,6 +44,10 @@ const Login = () => {
 
   const handleGoogleLogin = async () => {
     setError('');
+    if (!auth || !googleProvider) {
+      setError('Google authentication is not configured. Please supply Firebase credentials in client .env');
+      return;
+    }
     setLoading(true);
     try {
       const result = await signInWithPopup(auth, googleProvider);

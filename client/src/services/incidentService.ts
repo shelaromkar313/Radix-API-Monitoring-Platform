@@ -115,6 +115,11 @@ export const incidentService = {
     return response.data;
   },
 
+  async testEmailAlert(toEmail?: string) {
+    const response = await api.post('/incidents/test-email', { toEmail });
+    return response.data;
+  },
+
   async getRemediationRegistry() {
     const response = await api.get('/remediations/registry');
     return response.data;

@@ -6,6 +6,7 @@ router.use(protect);
 router.get('/', IncidentController.getIncidents);
 router.get('/stats', IncidentController.getStats);
 router.post('/demo/simulate-outage', IncidentController.simulateOutage);
+router.post('/test-email', IncidentController.testEmailAlert);
 router.get('/:id', IncidentController.getIncidentById);
 router.post('/:id/analyze', IncidentController.triggerAnalysis);
 router.post('/:id/feedback', IncidentController.submitFeedback);

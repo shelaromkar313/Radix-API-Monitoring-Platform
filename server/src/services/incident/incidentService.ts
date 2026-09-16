@@ -107,7 +107,13 @@ export class IncidentService {
       title: `🚨 [${incident.severity}] ${incident.title}`,
       message: `Detected at ${new Date().toLocaleTimeString()} on ${incident.endpoint?.path || 'service'}`,
       severity: incident.severity,
-      projectId: incident.project_id
+      projectId: incident.project_id,
+      metadata: {
+        metrics: input.metrics,
+        method: incident.endpoint?.method || 'API',
+        endpointPath: incident.endpoint?.path || incident.title,
+        status: input.metrics.fiveXxCount > 0 ? 500 : (input.metrics.fourXxCount > 0 ? 400 : 200)
+      }
     });
 
     // 5. Trigger automated AI RCA asynchronously if requested

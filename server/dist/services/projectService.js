@@ -38,6 +38,14 @@ export class ProjectService {
         }
         return project;
     }
+    async rescanProject(id, userId) {
+        const project = await this.getProjectById(id, userId);
+        await projectRepository.updateStatus(id, 'scanning');
+        processScanJob(project.id, project.repository_url).catch(err => {
+            console.error(`Background scan failed for project ${project.id}:`, err);
+        });
+        return { ...project, status: 'scanning' };
+    }
     async deleteProject(id, userId) {
         const deleted = await projectRepository.delete(id, userId);
         if (!deleted) {

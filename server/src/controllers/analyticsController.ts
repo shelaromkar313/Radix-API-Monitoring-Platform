@@ -19,3 +19,18 @@ export const getProjectAnalytics = async (req: AuthRequest, res: Response, next:
     next(error);
   }
 };
+
+export const getPlatformOverview = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
+
+  try {
+    const result = await analyticsService.getPlatformOverview((req.user as any).id);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+

@@ -36,3 +36,13 @@ export const getRequestHistory = async (req: AuthRequest, res: Response, next: N
     next(error);
   }
 };
+
+export const getEndpointMetrics = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  const { endpointId } = req.params;
+  try {
+    const metrics = await testingService.getMetrics(endpointId);
+    res.json(metrics);
+  } catch (error) {
+    next(error);
+  }
+};
