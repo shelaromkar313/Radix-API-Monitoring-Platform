@@ -48,8 +48,8 @@ export const connectRedis = async () => {
     if (!redisClient.isOpen) {
       await redisClient.connect();
     }
-  } catch (err: any) {
-    console.error('❌ Failed to connect to Redis:', err.message);
+  } catch {
+    // Handled by redisClient error listener
   }
 };
 

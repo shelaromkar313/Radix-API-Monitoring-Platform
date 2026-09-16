@@ -12,8 +12,7 @@ if (!admin.apps.length) {
     : undefined;
 
   if (!projectId || !clientEmail || !privateKey || clientEmail.includes('PASTE_YOUR')) {
-    console.error('❌ Firebase Admin Error: Missing or mock credentials in .env');
-    console.error('Please ensure FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY are set correctly.');
+    console.log('ℹ️  Firebase Admin SDK credentials not set — using direct Google OAuth2 token verification.');
   } else {
     try {
       admin.initializeApp({
