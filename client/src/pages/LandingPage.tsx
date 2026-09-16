@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { ArrowRight, Code, Database, Layers, Zap, Globe, Cpu, Sparkles, Layout } from 'lucide-react';
+import { ArrowRight, Code, Database, Layers, Zap, Globe, Cpu, Sparkles, Layout, CheckCircle2 } from 'lucide-react';
 
 const LandingPage = () => {
   const container = {
@@ -175,28 +175,46 @@ const LandingPage = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-32 bg-slate-50 border-t border-slate-100 px-6">
-        <div className="max-w-4xl mx-auto text-center space-y-12">
-          <h2 className="text-5xl md:text-6xl font-black tracking-tight text-slate-900 uppercase italic">Start Building</h2>
-          <p className="text-slate-500 text-xl font-medium">Join 2,400+ developers engineering the future of infrastructure intelligence.</p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-            <Link to="/register" className="w-full sm:w-auto bg-primary text-white h-16 px-12 rounded-2xl font-black text-lg hover:shadow-2xl hover:shadow-primary/30 transition-all active:scale-95">
-              Create Free Protocol
+      <section className="py-24 bg-slate-50 border-t border-slate-100 px-6">
+        <div className="max-w-4xl mx-auto text-center space-y-10">
+          <h2 className="text-4xl md:text-6xl font-black tracking-tight text-slate-900 uppercase italic">Start Building Today</h2>
+          <p className="text-slate-500 text-lg md:text-xl font-medium max-w-2xl mx-auto leading-relaxed">
+            Join thousands of developers engineering the future of infrastructure intelligence and automated API resilience.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link 
+              to="/register" 
+              className="w-full sm:w-auto bg-primary text-white h-14 px-10 rounded-2xl font-black text-base hover:bg-primary/90 hover:shadow-xl hover:shadow-primary/20 transition-all active:scale-95 inline-flex items-center justify-center gap-2"
+            >
+              Get Started for Free <ArrowRight className="w-4 h-4" />
             </Link>
-            <div className="flex items-center gap-4 text-slate-400 font-bold">
-              <div className="flex -space-x-2">
-                {[1, 2, 3, 4].map(i => (
-                  <div key={i} className={`h-8 w-8 rounded-full border-2 border-white bg-slate-${i * 100 + 100}`} />
-                ))}
-              </div>
-              <span className="text-xs uppercase tracking-widest">+2.4k users</span>
+            <Link 
+              to="/login" 
+              className="w-full sm:w-auto bg-white border border-slate-200 text-slate-800 h-14 px-8 rounded-2xl font-bold text-base hover:bg-slate-50 transition-all active:scale-95 inline-flex items-center justify-center"
+            >
+              Developer Console
+            </Link>
+          </div>
+
+          <div className="pt-4 flex flex-wrap items-center justify-center gap-6 md:gap-10 text-xs font-bold text-slate-500">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              <span>Zero-Config Scanner</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              <span>OpenAPI 3.1 & Postman Exports</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              <span>Autonomous AI Diagnostics</span>
             </div>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-12 bg-white border-t border-slate-50">
+      <footer className="py-12 bg-white border-t border-slate-100">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-slate-900 rounded-lg">
@@ -205,12 +223,12 @@ const LandingPage = () => {
             <span className="font-black italic text-slate-900 tracking-tighter uppercase">RADIX Platform</span>
           </div>
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
-            &copy; 2026 THE INTELLIGENCE GROUP. ALL RIGHTS RESERVED.
+            &copy; 2026 RADIX API MONITORING PLATFORM. ALL RIGHTS RESERVED.
           </p>
           <div className="flex gap-8 text-[10px] font-black uppercase tracking-widest text-slate-400">
-            <a href="#" className="hover:text-primary transition-colors">Security</a>
-            <a href="#" className="hover:text-primary transition-colors">Privacy</a>
-            <a href="#" className="hover:text-primary transition-colors">SLA</a>
+            <Link to="/login" className="hover:text-primary transition-colors">Console</Link>
+            <Link to="/register" className="hover:text-primary transition-colors">Register</Link>
+            <a href="https://github.com/shelaromkar313/Radix-API-Monitoring-Platform" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">GitHub</a>
           </div>
         </div>
       </footer>
