@@ -13,26 +13,26 @@ const redisClient = createClient({
   disableOfflineQueue: true, // Fail immediately rather than hanging promises if Redis is offline
   pingInterval: 30000,
   socket: {
-    connectTimeout: 3000,
+    connectTimeout: 2000,
     keepAlive: 30000,
     reconnectStrategy: (retries) => {
-      if (retries > 3) {
-        return false; // Stop reconnecting after 3 failed attempts
+      if (retries > 1) {
+        return false; // Stop reconnecting after 1 failed attempt in dev
       }
-      return 1000;
+      return 500;
     }
   }
 });
 
+let hasLoggedRedisError = false;
 redisClient.on('error', (err) => {
-  // Silent handling of standard socket closures
   if (err.message === 'Socket closed unexpectedly' || err.code === 'ECONNRESET') {
     return; 
   }
 
-  console.error('❌ Redis Client Error:', err.message);
-  if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
-    console.error('👉 Redis connection unreachable at', REDIS_URL);
+  if (!hasLoggedRedisError) {
+    hasLoggedRedisError = true;
+    console.warn(`⚠️ Redis unreachable at ${REDIS_URL} — server operating in standalone DB mode.`);
   }
 });
 

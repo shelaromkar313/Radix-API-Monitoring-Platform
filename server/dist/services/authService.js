@@ -53,16 +53,38 @@ export class AuthService {
         };
     }
     async googleAuth(tokenId) {
-        const decodedToken = await admin.auth().verifyIdToken(tokenId);
-        if (!decodedToken) {
+        let email;
+        let name;
+        let google_id;
+        if (admin.apps.length > 0) {
+            try {
+                const decodedToken = await admin.auth().verifyIdToken(tokenId);
+                email = decodedToken.email;
+                name = decodedToken.name;
+                google_id = decodedToken.uid;
+            }
+            catch (err) {
+                console.warn('Firebase Admin verification failed, falling back to Google TokenInfo API:', err.message);
+            }
+        }
+        // Direct Google OAuth2 TokenInfo verification (Zero-config server fallback)
+        if (!email) {
+            try {
+                const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${tokenId}`);
+                if (res.ok) {
+                    const info = (await res.json());
+                    email = info.email;
+                    name = info.name || info.given_name;
+                    google_id = info.sub;
+                }
+            }
+            catch (googleErr) {
+                console.error('Google tokeninfo verification error:', googleErr);
+            }
+        }
+        if (!email) {
             const error = new Error('Invalid Google Token');
             error.statusCode = 401;
-            throw error;
-        }
-        const { email, name, uid: google_id } = decodedToken;
-        if (!email) {
-            const error = new Error('Google account must have an email');
-            error.statusCode = 400;
             throw error;
         }
         let user = await userRepository.findByEmail(email);
