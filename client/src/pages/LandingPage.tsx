@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { ArrowRight, Code, Database, Layers, Zap, Globe, Cpu, Sparkles, Layout, Monitor } from 'lucide-react';
+import { ArrowRight, Code, Database, Layers, Zap, Globe, Cpu, Sparkles, Layout } from 'lucide-react';
 
 const LandingPage = () => {
   const container = {
@@ -53,30 +53,6 @@ const LandingPage = () => {
               <Link to="/login" className="w-full sm:w-auto bg-white border border-slate-200 text-slate-900 h-16 px-10 rounded-2xl text-lg font-black inline-flex items-center justify-center transition-all hover:bg-slate-50 shadow-sm active:scale-95">
                 Developer Console
               </Link>
-            </div>
-          </motion.div>
-
-          {/* Product Preview Placeholder */}
-          <motion.div
-            initial={{ opacity: 0, y: 100 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 1, ease: "easeOut" }}
-            className="mt-24 relative max-w-6xl mx-auto"
-          >
-            <div className="p-4 bg-slate-900/5 rounded-[3rem] border border-slate-200/50 backdrop-blur-3xl shadow-premium">
-              <div className="bg-white rounded-[2rem] border border-slate-100 overflow-hidden shadow-2xl aspect-[16/9] flex items-center justify-center relative group">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
-                <Monitor className="h-20 w-20 text-slate-100 group-hover:scale-110 transition-transform duration-700" />
-                <div className="absolute bottom-8 left-8 right-8 flex items-end justify-between">
-                  <div className="space-y-2 text-left">
-                    <div className="h-2 w-32 bg-slate-100 rounded-full" />
-                    <div className="h-2 w-48 bg-slate-100 rounded-full" />
-                  </div>
-                  <div className="p-4 bg-slate-900 rounded-2xl shadow-xl">
-                    <Zap className="h-6 w-6 text-white" />
-                  </div>
-                </div>
-              </div>
             </div>
           </motion.div>
         </div>
